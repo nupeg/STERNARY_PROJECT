@@ -1,0 +1,42 @@
+[build-system]
+requires = [
+    "setuptools>=80",
+    "wheel",
+]
+build-backend = "setuptools.build_meta"
+
+
+[project]
+name = "sternario"
+version = "0.1.0"
+description = "Bayesian optimization framework for fitting Lennard-Jones parameters."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+
+authors = [
+    { name = "Osvaldo Chiavone-Filho" },
+    { name = "João Lucas" },
+    { name = "Mateus Monteiro" },
+    { name = "Nicole Laurindo" },
+    { name = "Rômulo Silva" },
+]
+
+keywords = [
+    "bayesian-optimization",
+    "molecular-dynamics",
+    "lammps",
+    "lennard-jones",
+    "viscosity",
+]
+
+# Adicionamos as bibliotecas necessárias para a manipulação dos dados Excel
+dependencies = [
+    "pandas>=2.2.0",
+    "openpyxl>=3.1.0",
+]
+
+
+# Indica ao setuptools para procurar os pacotes dentro da pasta 'src'
+[tool.setuptools.packages.find]
+where = ["src"]
