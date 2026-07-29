@@ -4,3 +4,4 @@ venv
 *egg-info
 __pycache__
 settings.json
+tabela_de_sais_concatenada.xlsx
