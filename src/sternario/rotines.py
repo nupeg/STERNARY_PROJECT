@@ -124,7 +124,7 @@ class DataProcessor:
 
     def prepare_output_dataset(self):
         """Realiza os cálculos de conversão e gera o dataset final formatado."""
-        df = self.raw_dataset.copy()
+        df: pd.DataFrame = self.raw_dataset.copy()
 
         # 1. Conversão de Temperatura para Kelvin -> "T (K)"
         is_celsius = df["Temperature Unit"].astype(str).str.contains("Celsius", case=False, na=False)
@@ -140,7 +140,7 @@ class DataProcessor:
             salt1_code = row.get("Salt 1 code")
             salt2_code = row.get("Salt 2 code")
             x1_val, x2_val = row["x1"], row["x2"]
-            unit = str(row["x unit"]).strip().upper()
+            unit = str(row["x unit"]).strip()
 
             # Cálculo dinâmico das massas molares (retorna np.nan em caso de erro/código ausente)
             mw1 = self.parse_salt_code(salt1_code)
@@ -148,25 +148,29 @@ class DataProcessor:
 
             # --- Regras de conversão baseadas nos códigos do README ---
             if unit == "SAT_SOL_WT%":
-                # Gramas de soluto por 100g de solução total (mistura)
-                mass_water = 100.0 - (x1_val + x2_val)
-                b1 = (x1_val / mw1) / (mass_water / 1000.0) if mass_water > 0 else np.nan
-                b2 = (x2_val / mw2) / (mass_water / 1000.0) if mass_water > 0 else np.nan
+                # g soluto/ g solução (Sat. Sol. Wt. %)
+                mass_water = 100.0 - (x1_val + x2_val) 
 
-            elif unit in ["G_100G_MIX", "G_CM3_SOL"]:
-                # Gramas de soluto por 100g (0.1 kg) de solvente H2O
+                if mass_water <= 0.0:
+                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water}; x1_val = {x1_val}; x2_val = {x2_val}; ')
+                
+                b1 = (x1_val / mw1) / (mass_water / 1000.0)
+                b2 = (x2_val / mw2) / (mass_water / 1000.0)
+
+            elif unit in ["G_100G_MIX"]:
+                # g soluto/100g solução (Gms. per 100 gms. sat. sol.)
                 b1 = (x1_val / mw1) / 0.1
                 b2 = (x2_val / mw2) / 0.1
 
-            elif unit == "G_L_SOL":
-                # Gramas de soluto por 1000g (1.0 kg) de solvente H2O
-                b1 = x1_val / mw1
-                b2 = x2_val / mw2
+            elif unit in ["G_CM3_SOL", "G_L_SOL", "GMOL_SOL"]:
+                # g soluto/ cm³ solvente (Gms. per 100 cc sat. sol.) => G_CM3_SOL;
+                # g soluto/ L solvente (Grams per Liter Sol.) => G_L_SOL;
+                # g*mol/ L solvente (Gm. mols. per liter) => GMOL_SOL
+                b1 = np.nan
+                b1 = np.nan
 
-            elif unit == "GMOL_SOL":
-                # Mols de soluto por kg de solvente H2O
-                b1 = x1_val
-                b2 = x2_val
+            else:
+                raise ValueError(f"Código não reconhecido: {unit}")
 
             b1_list.append(b1)
             b2_list.append(b2)
@@ -182,8 +186,16 @@ class DataProcessor:
         df["x2"] = b2_array / n_total
         df["xH2O"] = nH2O / n_total
 
+        df=df.dropna(subset=["x1", "x2"])
+
+        df=df[
+            (df["x1"] != 0.0) &
+            (df["x2"] != 0.0)
+        ]
+        
+
         # 5. Molalidade total da mistura (b_total em mol/kg de H2O)
-        df["b_total"] = b1_array + b2_array
+        df["b_total"] = df["x1"]  + df["x2"]
 
         # 6. Seleção e ordenação das colunas de saída solicitadas
         output_columns = [
@@ -197,6 +209,8 @@ class DataProcessor:
             "b_total",
         ]
         self.output_dataset = df[output_columns].copy()
+
+
 
     def save_output_workbook(self):
         """Salva a planilha de saída limpa sem colunas Unnamed."""
