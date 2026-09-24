@@ -136,6 +136,8 @@ class DataProcessor:
 
         # 3. Cálculo dinâmico da Molalidade b1 e b2 (mol/kg de H2O) por interpretação do código
         b1_list, b2_list = [], []
+        x1_molal_list, x2_molal_list = [], []
+
         for _, row in df.iterrows():
             salt1_code = row.get("Salt 1 code")
             salt2_code = row.get("Salt 2 code")
@@ -149,18 +151,34 @@ class DataProcessor:
             # --- Regras de conversão baseadas nos códigos do README ---
             if unit == "SAT_SOL_WT%":
                 # g soluto/ g solução (Sat. Sol. Wt. %)
-                mass_water = 100.0 - (x1_val + x2_val) 
+                mass_water_g = 100.0 - (x1_val + x2_val)
 
-                if mass_water <= 0.0:
-                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water}; x1_val = {x1_val}; x2_val = {x2_val}; ')
-                
-                b1 = (x1_val / mw1) / (mass_water / 1000.0)
-                b2 = (x2_val / mw2) / (mass_water / 1000.0)
+                if mass_water_g <= 0.0:
+                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water_g}; x1_val = {x1_val}; x2_val = {x2_val}; ')
+
+                mass_water_kg = mass_water_g / 1000.0
+                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
+                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
+
+                # Frações molales (mol / kg de solução)
 
             elif unit in ["G_100G_MIX"]:
-                # g soluto/100g solução (Gms. per 100 gms. sat. sol.)
-                b1 = (x1_val / mw1) / 0.1
-                b2 = (x2_val / mw2) / 0.1
+                # x1_val e x2_val estão em g de soluto / 100g de solução
+                mass_water_g = 100.0 - (x1_val + x2_val)
+
+                if mass_water_g <= 0.0:
+                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water_g}; x1_val = {x1_val}; x2_val = {x2_val}; ')
+
+                mass_water_kg = mass_water_g / 1000.0
+
+                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
+                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
+
+            elif unit in ["G_100G_H2O"]:
+                mass_water_kg = 0.1 # massa de água fixa = 0.1 kg ou 100g
+                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
+                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
+
 
             elif unit in ["G_CM3_SOL", "G_L_SOL", "GMOL_SOL"]:
                 # g soluto/ cm³ solvente (Gms. per 100 cc sat. sol.) => G_CM3_SOL;
@@ -178,26 +196,25 @@ class DataProcessor:
         b1_array = np.array(b1_list)
         b2_array = np.array(b2_list)
 
-        # 4. Cálculo das frações molares da mistura (x1, x2, xH2O)
-        nH2O = 1000.0 / self.MW_H2O  # Mols de H2O em 1 kg (~55.5084 mol)
-        n_total = b1_array + b2_array + nH2O
+        # 4. Cálculo da molalidade total da mistura (b_total)
+        b_total_array = b1_array + b2_array
 
-        df["x1"] = b1_array / n_total
-        df["x2"] = b2_array / n_total
-        df["xH2O"] = nH2O / n_total
+        # 5. Cálculo das frações molais adimensionais (x1 e x2 são valores entre 0 e 1 tais que x1 + x2 = 1)
+        df["x1"] = b1_array / b_total_array
+        df["x2"] = b2_array / b_total_array
+        df["b_total"] = b_total_array
 
-        df=df.dropna(subset=["x1", "x2"])
+        # 6. Limpeza das linhas nulas inválidas
+        df=df.dropna(subset=["x1", "x2"]).copy()
 
         df=df[
             (df["x1"] != 0.0) &
             (df["x2"] != 0.0)
-        ]
+        ].copy()
         
 
-        # 5. Molalidade total da mistura (b_total em mol/kg de H2O)
-        df["b_total"] = df["x1"]  + df["x2"]
 
-        # 6. Seleção e ordenação das colunas de saída solicitadas
+        # 7. Seleção e ordenação das colunas de saída solicitadas
         output_columns = [
             "Salt 1",
             "Salt 2",
@@ -205,7 +222,6 @@ class DataProcessor:
             "P (atm)",
             "x1",
             "x2",
-            "xH2O",
             "b_total",
         ]
         self.output_dataset = df[output_columns].copy()
