@@ -3,5 +3,6 @@
     "input_file": "tabela_de_sais_linke.xlsx",
 
     "output_path": "",
-    "output_file": ""
+    "output_file": "",
+    "solubility_file": ""
 }

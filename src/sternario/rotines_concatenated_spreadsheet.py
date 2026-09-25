@@ -31,8 +31,16 @@ class DataProcessor:
 
     def __init__(self, settings):
         self.settings = settings
-        self.input_path = Path(self.settings.get("INPUT_FILE"))
-        self.output_path = Path(self.settings.get("OUTPUT_FILE"))
+
+        self.input_path = (
+            Path(self.settings["input_path"])
+            / self.settings["input_file"]
+        )
+
+        self.output_path = (
+            Path(self.settings["output_path"])
+            / self.settings["output_file"]
+        )
 
         self.workbook = None
         self.readme = None
@@ -200,19 +208,28 @@ class DataProcessor:
         b_total_array = b1_array + b2_array
 
         # 5. Cálculo das frações molais adimensionais (x1 e x2 são valores entre 0 e 1 tais que x1 + x2 = 1)
-        df["x1"] = b1_array / b_total_array
-        df["x2"] = b2_array / b_total_array
+        df["b1"] = b1_array
+        df["b2"] = b2_array
         df["b_total"] = b_total_array
 
         # 6. Limpeza das linhas nulas inválidas
-        df=df.dropna(subset=["x1", "x2"]).copy()
+        df=df.dropna(subset=["b1", "b2"])
 
         df=df[
-            (df["x1"] != 0.0) &
-            (df["x2"] != 0.0)
-        ].copy()
-        
+            (df["b1"] != 0.0) &
+            (df["b2"] != 0.0)
+        ]
 
+        invalidos = df[
+            (df["b1"] <= 0) |
+            (df["b2"] <= 0) |
+            (df["b_total"] <= 0) |
+            (df["T (K)"] <= 0) |
+            (df["P (atm)"] <= 0)
+        ]
+
+
+        if not invalidos.empty: raise ValueError(f"Existem valores inválidos")
 
         # 7. Seleção e ordenação das colunas de saída solicitadas
         output_columns = [
@@ -220,8 +237,8 @@ class DataProcessor:
             "Salt 2",
             "T (K)",
             "P (atm)",
-            "x1",
-            "x2",
+            "b1",
+            "b2",
             "b_total",
         ]
         self.output_dataset = df[output_columns].copy()
@@ -229,7 +246,7 @@ class DataProcessor:
 
 
     def save_output_workbook(self):
-        """Salva a planilha de saída limpa sem colunas Unnamed."""
+        "Salva a planilha de saída limpa sem colunas Unnamed."
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
         with pd.ExcelWriter(self.output_path, engine="openpyxl") as writer:

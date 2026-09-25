@@ -1,5 +1,5 @@
 import sys
-from sternario.rotines import DataProcessor
+from sternario.rotines_concatenated_spreadsheet import DataProcessor
 from sternario.settings import load_settings
 
 

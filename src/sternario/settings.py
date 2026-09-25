@@ -8,6 +8,7 @@ class Settings:
     input_file: str
     output_path: str
     output_file: str
+    solubility_file: str
 
     def get(self, key: str, default=None):
         """
@@ -43,5 +44,6 @@ def load_settings(config_path: str = "settings.json") -> Settings:
         input_path=load_data["input_path"],
         input_file=load_data["input_file"],
         output_path=load_data["output_path"],
-        output_file=load_data["output_file"]
+        output_file=load_data["output_file"],
+        solubility_file=load_data["solubility_file"]
     )
