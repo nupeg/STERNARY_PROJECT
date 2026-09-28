@@ -1,8 +1,8 @@
 import sys
 
 from sternario.settings import load_settings
-from sternario.rotines_concatenated_spreadsheet import DataProcessor
-from sternario.rotines_solubility_spreadsheet import SolubilityProcessor
+from sternario.routines_concatenated_spreadsheet import DataProcessor
+from sternario.routines_solubility_spreadsheet import SolubilityProcessor
 
 
 def show_menu():
