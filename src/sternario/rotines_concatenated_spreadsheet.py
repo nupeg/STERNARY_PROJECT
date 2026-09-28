@@ -139,8 +139,12 @@ class DataProcessor:
         df["T (K)"] = np.where(is_celsius, df["Temperature"] + 273.15, df["Temperature"])
 
         # 2. Conversão de Pressão para atm -> "P (atm)"
+        is_atm = df["Pressure Unit"].astype(str).str.contains("atm", case=False, na=False)
+        df["P (MPa)"] = np.where(is_atm, df["Pressure"] * 0.101325, df["Pressure"])
+
         is_bar = df["Pressure Unit"].astype(str).str.contains("bar", case=False, na=False)
-        df["P (atm)"] = np.where(is_bar, df["Pressure"] / 1.01325, df["Pressure"])
+        df["P (MPa)"] = np.where(is_bar, df["Pressure"] * 0.1, df["P (MPa)"])
+
 
         # 3. Cálculo dinâmico da Molalidade b1 e b2 (mol/kg de H2O) por interpretação do código
         b1_list, b2_list = [], []
@@ -225,7 +229,7 @@ class DataProcessor:
             (df["b2"] <= 0) |
             (df["b_total"] <= 0) |
             (df["T (K)"] <= 0) |
-            (df["P (atm)"] <= 0)
+            (df["P (MPa)"] <= 0)
         ]
 
 
@@ -236,7 +240,7 @@ class DataProcessor:
             "Salt 1",
             "Salt 2",
             "T (K)",
-            "P (atm)",
+            "P (MPa)",
             "b1",
             "b2",
             "b_total",
