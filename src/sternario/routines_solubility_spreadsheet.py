@@ -72,12 +72,15 @@ class SolubilityProcessor:
         for _, row in self.input_dataset.iterrows():
 
             b2_reference = row["b2"]
+            reduction_factor = 0.80
 
-            b2_points = calculate_b2_points(b2_reference,
-                                            reduction_factor=0.90,
-                                            minimum_step=0.15
+            b2_points = calculate_b2_points(
+                b2_reference, 
+                reduction_factor=reduction_factor, 
+                minimum_step=0.15
             )
 
+            b2_margin = b2_reference * reduction_factor
 
 
             for b2 in b2_points:
@@ -94,6 +97,8 @@ class SolubilityProcessor:
                         "P (MPa)": row["P (MPa)"],
                         "b1 (mol*kg-1)": row["b1"],
                         "b2 (mol*kg-1)": b2,
+                        "b2_solubility (mol*kg-1)": b2_reference,
+                        "b2_margin (mol*kg-1)": b2_margin
                     }
                 )
 
@@ -123,6 +128,8 @@ class SolubilityProcessor:
                 "b_total (mol*kg-1)": 3,
                 "b1 (mol*kg-1)": 3,
                 "b2 (mol*kg-1)": 3,
+                "b2_solubility (mol*kg-1)": 3,
+                "b2_margin (mol*kg-1)": 3,
             }
         )
 

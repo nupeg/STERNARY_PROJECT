@@ -27,7 +27,6 @@ keywords = [
     "molecular-dynamics",
     "lammps",
     "lennard-jones",
-    "viscosity",
 ]
 
 # Adicionamos as bibliotecas necessárias para a manipulação dos dados Excel
