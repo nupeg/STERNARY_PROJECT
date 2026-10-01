@@ -93,12 +93,15 @@ class SolubilityProcessor:
                     {
                         "Salt 1": row["Salt 1"],
                         "Salt 2": row["Salt 2"],
+                        "Salt 1 code": row["Salt 1 code"],
+                        "Salt 2 code": row["Salt 2 code"],
                         "T (K)": row["T (K)"],
                         "P (MPa)": row["P (MPa)"],
                         "b1 (mol*kg-1)": row["b1"],
                         "b2 (mol*kg-1)": b2,
                         "b2_solubility (mol*kg-1)": b2_reference,
-                        "b2_margin (mol*kg-1)": b2_margin
+                        "b2_margin (mol*kg-1)": b2_margin,
+                        "Ref": row["Ref"],
                     }
                 )
 
@@ -138,10 +141,16 @@ class SolubilityProcessor:
             by=[
                 "Salt 1",
                 "Salt 2",
+                "Salt 1 code",
+                "Salt 2 code",
                 "T (K)",
                 "P (MPa)",
                 "b1 (mol*kg-1)",
                 "b2 (mol*kg-1)",
+                "b2_solubility (mol*kg-1)",
+                "b2_margin (mol*kg-1)",
+                "b_total (mol*kg-1)",
+                "Ref"
             ],
             ascending=[
                 True,
@@ -150,8 +159,32 @@ class SolubilityProcessor:
                 True,
                 True,
                 True,
+                True,
+                True,
+                True,
+                True,
+                True,
+                True,
             ],
         ).reset_index(drop=True)
+
+        # Define the final column order
+        self.output_dataset = self.output_dataset[
+        [
+            "Salt 1",
+            "Salt 2",
+            "Salt 1 code",
+            "Salt 2 code",
+            "T (K)",
+            "P (MPa)",
+            "b1 (mol*kg-1)",
+            "b2 (mol*kg-1)",
+            "b2_solubility (mol*kg-1)",
+            "b2_margin (mol*kg-1)",
+            "b_total (mol*kg-1)",
+            "Ref",
+        ]
+    ]
 
     
     def save_output_workbook(self):

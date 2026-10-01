@@ -239,11 +239,14 @@ class DataProcessor:
         output_columns = [
             "Salt 1",
             "Salt 2",
+            "Salt 1 code",
+            "Salt 2 code",
             "T (K)",
             "P (MPa)",
             "b1",
             "b2",
             "b_total",
+            "Ref",
         ]
         self.output_dataset = df[output_columns].copy()
 
