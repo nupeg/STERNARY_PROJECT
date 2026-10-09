@@ -1,150 +1,114 @@
-import sys
-
-from sternario.settings import load_settings
 from sternario.routines_concatenated_spreadsheet import DataProcessor
+from sternario.routines_simulation_folder_creator import (
+    main as create_simulation_folders,
+)
 from sternario.routines_solubility_spreadsheet import SolubilityProcessor
-
-
-def show_menu():
-    """
-    Display the main application menu.
-    """
-
-    print("\n==========================================")
-    print("      STERNARIO - DATA PROCESSOR")
-    print("==========================================")
-
-    print("\n--- Concatenated Dataset ---")
-    print("1. Carregar arquivo de entrada")
-    print("2. Ler e unificar dados")
-    print("3. Preparar dataset de saída")
-    print("4. Salvar dataset de saída")
-
-    print("\n--- Solubility Dataset ---")
-    print("5. Carregar dataset de solubilidade")
-    print("6. Gerar pontos de solubilidade")
-    print("7. Preparar dataset de solubilidade")
-    print("8. Salvar planilha de solubilidade")
-
-    print("\n--- Complete Workflow ---")
-    print("9. Executar todas as tarefas")
-
-    print("\n0. Encerrar programa")
+from sternario.settings import load_settings
 
 
 def main():
-    """
-    Main application entry point.
-    """
+    """Main function responsible for managing the application menu."""
 
-    try:
-        settings = load_settings()
+    settings = load_settings()
 
-        data_processor = DataProcessor(settings)
-        solubility_processor = SolubilityProcessor(settings)
+    data_processor = DataProcessor(settings)
+    solubility_processor = SolubilityProcessor(settings)
 
-        while True:
+    while True:
+        print("\n" + "=" * 50)
+        print("         TERNARY MIXTURE DATA PROCESSOR")
+        print("=" * 50)
 
-            show_menu()
+        print("\n--- Data Processing ---")
+        print("1. Load input file")
+        print("2. Read and unify data")
+        print("3. Prepare output dataset")
+        print("4. Save output dataset")
 
-            option = input("\nEscolha uma opção: ").strip()
+        print("\n--- Solubility Processing ---")
+        print("5. Load solubility input")
+        print("6. Generate solubility points")
+        print("7. Prepare solubility dataset")
+        print("8. Save solubility dataset")
 
-            # --------------------------------------------------
-            # Concatenated dataset
-            # --------------------------------------------------
+        print("\n--- Folder Creation ---")
+        print("9. Create simulation folders")
 
+        print("\n--- Complete Workflows ---")
+        print("10. Execute complete data processing")
+
+        print("\n--- Exit Menu ---")
+        print("\n0. Exit")
+
+        option = input("\nSelect an option: ").strip()
+
+        try:
             if option == "1":
-
                 data_processor.load_input_workbook()
-
-                print("\nArquivo de entrada carregado com sucesso.")
+                print("\nInput file loaded successfully.")
 
             elif option == "2":
-
                 data_processor.read_input_workbook()
-
-                print("\nDados lidos e unificados com sucesso.")
+                print("\nInput data read successfully.")
 
             elif option == "3":
-
                 data_processor.prepare_output_dataset()
-
-                print("\nDataset de saída preparado com sucesso.")
+                print("\nOutput dataset prepared successfully.")
 
             elif option == "4":
-
                 data_processor.save_output_workbook()
-
-                print("\nDataset de saída salvo com sucesso.")
-
-            # --------------------------------------------------
-            # Solubility dataset
-            # --------------------------------------------------
+                print("\nOutput dataset saved successfully.")
 
             elif option == "5":
-
+                # Nome corrigido conforme a classe SolubilityProcessor
                 solubility_processor.load_input_dataset()
-
-                print("\nDataset de entrada da solubilidade carregado com sucesso.")
+                print("\nSolubility input file loaded successfully.")
 
             elif option == "6":
-
+                # Nome corrigido conforme a classe SolubilityProcessor
                 solubility_processor.generate_solubility_points()
-
-                print("\nPontos de solubilidade gerados com sucesso.")
+                print("\nSolubility points generated successfully.")
 
             elif option == "7":
-
                 solubility_processor.prepare_output_dataset()
-
-                print("\nDataset de solubilidade preparado com sucesso.")
+                print("\nSolubility dataset prepared successfully.")
 
             elif option == "8":
-
                 solubility_processor.save_output_workbook()
-
-                print("\nPlanilha de solubilidade salva com sucesso.")
-
-            # --------------------------------------------------
-            # Complete workflow
-            # --------------------------------------------------
+                print("\nSolubility dataset saved successfully.")
 
             elif option == "9":
+                print("\nStarting simulation folder creation...")
 
-                print("\nExecutando todas as tarefas...")
+                # Adicionado () para executar a função
+                create_simulation_folders()
+
+                print("\nSimulation folder creation routine finished.")
+
+            elif option == "10":
+                print("\nStarting complete workflow...")
 
                 data_processor.execute()
                 solubility_processor.execute()
+                create_simulation_folders()
 
-                print("\nTodas as tarefas foram executadas com sucesso.")
-
-            # --------------------------------------------------
-            # Exit
-            # --------------------------------------------------
+                print("\nComplete workflow finished.")
 
             elif option == "0":
-
-                print("\nPrograma encerrado.")
-
+                print("\nProgram closed.")
                 break
 
             else:
+                print("\nInvalid option. Please select a valid option.")
 
-                print("\nOpção inválida. Escolha uma opção do menu.")
+        except FileNotFoundError as error:
+            print(f"\nFile not found: {error}")
 
-    except FileNotFoundError as error:
+        except ValueError as error:
+            print(f"\nInvalid data or configuration: {error}")
 
-        print(
-            f"\nErro de arquivo: {error}",
-            file=sys.stderr,
-        )
-
-    except Exception as error:
-
-        print(
-            f"\nOcorreu um erro inesperado: {error}",
-            file=sys.stderr,
-        )
+        except Exception as error:
+            print(f"\nAn unexpected error occurred: {error}")
 
 
 if __name__ == "__main__":

@@ -1,18 +1,19 @@
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 
 class DataProcessor:
     """
-    Classe responsável por carregar, unificar, converter unidades físico-químicas
-    e exportar os dados processados de misturas ternárias de sais.
-    
-    As massas molares são calculadas dinamicamente com base nas colunas
-    'Salt 1 code' e 'Salt 2 code'.
+    Class responsible for loading, processing, converting, and exporting
+    physicochemical data for ternary salt mixtures.
+
+    Molar masses are calculated dynamically from the
+    'Salt 1 code' and 'Salt 2 code' columns.
     """
 
-    # Massas atômicas dos elementos (g/mol) + Grupo SO4
+    # Atomic masses (g/mol), including the sulfate group.
     ATOMIC_MASSES = {
         "F": 18.9984,
         "Cl": 35.4530,
@@ -25,9 +26,12 @@ class DataProcessor:
         "Cs": 132.9055,
         "Mg": 24.3050,
         "Ca": 40.0780,
-        "SO4": 96.0600,  # S (32.06) + 4 * O (15.999)
+        "SO4": 96.0600,
     }
+
     MW_H2O = 18.01528  # g/mol
+
+    BAR_TO_ATM = 0.9869232667
 
     def __init__(self, settings):
         self.settings = settings
@@ -48,215 +52,419 @@ class DataProcessor:
         self.output_dataset = None
 
     def execute(self):
-        """Executa a sequência do pipeline de dados."""
+        """Execute the complete data-processing pipeline."""
         self.load_input_workbook()
         self.read_input_workbook()
         self.prepare_output_dataset()
         self.save_output_workbook()
 
     def load_input_workbook(self):
-        """Carrega a planilha de entrada."""
-        if not self.input_path.exists():
-            raise FileNotFoundError(f"Arquivo de entrada não encontrado: {self.input_path}")
+        """Load the input Excel workbook."""
+        if not self.input_path.is_file():
+            raise FileNotFoundError(
+                f"Input file not found: {self.input_path}"
+            )
+
         self.workbook = pd.ExcelFile(self.input_path)
 
     def parse_salt_code(self, code):
         """
-        Interpreta dinamicamente os códigos das colunas 'Salt X code'
-        e calcula a massa molar (g/mol) do sal correspondente.
-        
-        Exemplos de entrada: 'Na_1_Cl_1', 'Ca_1_SO4_1', 'Na_2_SO_4', 'Li_2_SO4_1'
+        Calculate the molar mass of a salt from its component code.
+
+        Examples:
+            Na_1_Cl_1
+            Ca_1_SO4_1
+            Na_2_SO_4
+            Li_2_SO4_1
         """
         if not isinstance(code, str) or pd.isna(code):
             return np.nan
 
-        parts = [p.strip() for p in str(code).split("_") if p.strip()]
-        mw = 0.0
+        parts = [
+            part.strip()
+            for part in str(code).split("_")
+            if part.strip()
+        ]
+
+        molar_mass = 0.0
         i = 0
 
         while i < len(parts):
-            elem = parts[i]
+            element = parts[i]
 
-            # Trata variação em que o SO4 foi codificado como 'SO' e '4' separados
-            if elem == "SO" and i + 1 < len(parts) and parts[i + 1] == "4":
-                mw += self.ATOMIC_MASSES["SO4"]
+            # Treat SO_4 as a single sulfate group.
+            if (
+                element == "SO"
+                and i + 1 < len(parts)
+                and parts[i + 1] == "4"
+            ):
+                molar_mass += self.ATOMIC_MASSES["SO4"]
                 i += 2
                 continue
 
-            # Verifica se o elemento seguinte representa a quantidade
+            # Read the stoichiometric coefficient when available.
             if i + 1 < len(parts) and parts[i + 1].isdigit():
-                qty = float(parts[i + 1])
+                quantity = float(parts[i + 1])
                 i += 2
             else:
-                qty = 1.0
+                quantity = 1.0
                 i += 1
 
-            if elem in self.ATOMIC_MASSES:
-                mw += self.ATOMIC_MASSES[elem] * qty
-            elif elem.isdigit():
-                continue
+            if element in self.ATOMIC_MASSES:
+                molar_mass += (
+                    self.ATOMIC_MASSES[element] * quantity
+                )
 
-        return mw if mw > 0 else np.nan
+        return molar_mass if molar_mass > 0 else np.nan
 
     def read_input_workbook(self):
         """
-        Lê todas as abas de dados da planilha, limpa linhas/colunas nulas ou 'Unnamed',
-        e concatena tudo em um único DataFrame com um único cabeçalho.
+        Read all data sheets, remove empty and unnamed columns,
+        and concatenate the data into a single DataFrame.
         """
+        if self.workbook is None:
+            raise ValueError(
+                "The input workbook has not been loaded. "
+                "Run load_input_workbook() first."
+            )
+
         sheet_names = self.workbook.sheet_names
 
-        # Tratamento e limpeza da aba README (removendo colunas/linhas vazias Unnamed)
+        # Read and clean the README sheet when available.
         if "README" in sheet_names:
-            readme_df = pd.read_excel(self.workbook, sheet_name="README")
-            readme_df = readme_df.loc[:, ~readme_df.columns.str.contains("^Unnamed")].dropna(how="all")
+            readme_df = pd.read_excel(
+                self.workbook,
+                sheet_name="README",
+            )
+
+            readme_df = readme_df.loc[
+                :,
+                ~readme_df.columns.astype(str).str.contains(
+                    "^Unnamed",
+                    case=False,
+                    na=False,
+                ),
+            ].dropna(how="all")
+
             self.readme = readme_df
 
-        data_sheets = [s for s in sheet_names if s.upper() != "README"]
+        data_sheets = [
+            sheet
+            for sheet in sheet_names
+            if sheet.upper() != "README"
+        ]
+
         dataframes = []
 
         for sheet in data_sheets:
-            # Lê definindo o cabeçalho na segunda linha (índice 1)
-            df = pd.read_excel(self.workbook, sheet_name=sheet, header=1)
+            # The data header is located on the second row.
+            df = pd.read_excel(
+                self.workbook,
+                sheet_name=sheet,
+                header=1,
+            )
 
-            # Remove colunas 'Unnamed' decorrentes da formatação
-            df = df.loc[:, ~df.columns.str.contains("^Unnamed")].copy()
+            # Remove unnamed columns.
+            df = df.loc[
+                :,
+                ~df.columns.astype(str).str.contains(
+                    "^Unnamed",
+                    case=False,
+                    na=False,
+                ),
+            ].copy()
 
-            # Força x1 e x2 para formato numérico e descarta linhas vazias
-            df["x1"] = pd.to_numeric(df["x1"], errors="coerce")
-            df["x2"] = pd.to_numeric(df["x2"], errors="coerce")
+            # Convert composition values to numeric.
+            df["x1"] = pd.to_numeric(
+                df["x1"],
+                errors="coerce",
+            )
+
+            df["x2"] = pd.to_numeric(
+                df["x2"],
+                errors="coerce",
+            )
+
+            # Discard rows without valid composition values.
             df = df.dropna(subset=["x1", "x2"]).copy()
 
             dataframes.append(df)
 
-        self.raw_dataset = pd.concat(dataframes, ignore_index=True)
+        if not dataframes:
+            raise ValueError(
+                "No valid data sheets were found in the workbook."
+            )
+
+        self.raw_dataset = pd.concat(
+            dataframes,
+            ignore_index=True,
+        )
 
     def prepare_output_dataset(self):
-        """Realiza os cálculos de conversão e gera o dataset final formatado."""
-        df: pd.DataFrame = self.raw_dataset.copy()
+        """Convert units, calculate molalities, and prepare output data."""
+        if self.raw_dataset is None:
+            raise ValueError(
+                "Input data have not been read. "
+                "Run read_input_workbook() first."
+            )
 
-        # 1. Conversão de Temperatura para Kelvin -> "T (K)"
-        is_celsius = df["Temperature Unit"].astype(str).str.contains("Celsius", case=False, na=False)
-        df["T (K)"] = np.where(is_celsius, df["Temperature"] + 273.15, df["Temperature"])
+        df = self.raw_dataset.copy()
 
-        # 2. Conversão de Pressão para atm -> "P (atm)"
-        is_atm = df["Pressure Unit"].astype(str).str.contains("atm", case=False, na=False)
-        df["P (MPa)"] = np.where(is_atm, df["Pressure"] * 0.101325, df["Pressure"])
+        # 1. Convert temperature to Kelvin.
+        temperature = pd.to_numeric(
+            df["Temperature"],
+            errors="coerce",
+        )
 
-        is_bar = df["Pressure Unit"].astype(str).str.contains("bar", case=False, na=False)
-        df["P (MPa)"] = np.where(is_bar, df["Pressure"] * 0.1, df["P (MPa)"])
+        temperature_unit = (
+            df["Temperature Unit"]
+            .astype(str)
+            .str.strip()
+            .str.casefold()
+        )
 
+        is_celsius = temperature_unit.str.contains(
+            "celsius",
+            na=False,
+        )
 
-        # 3. Cálculo dinâmico da Molalidade b1 e b2 (mol/kg de H2O) por interpretação do código
-        b1_list, b2_list = [], []
-        x1_molal_list, x2_molal_list = [], []
+        df["T (K)"] = np.where(
+            is_celsius,
+            temperature + 273.15,
+            temperature,
+        )
+
+        # 2. Convert pressure to atm when necessary.
+        pressure = pd.to_numeric(
+            df["Pressure"],
+            errors="coerce",
+        )
+
+        pressure_unit = (
+            df["Pressure Unit"]
+            .astype(str)
+            .str.strip()
+            .str.casefold()
+        )
+
+        is_atm = pressure_unit.eq("atm")
+        is_bar = pressure_unit.eq("bar")
+
+        invalid_units = ~(is_atm | is_bar)
+
+        if invalid_units.any():
+            units = (
+                df.loc[invalid_units, "Pressure Unit"]
+                .drop_duplicates()
+                .tolist()
+            )
+
+            raise ValueError(
+                f"Unsupported pressure units: {units}. "
+                "Only 'atm' and 'bar' are accepted."
+            )
+
+        # Initialize the output pressure column.
+        df["P (atm)"] = np.nan
+
+        # Preserve values already expressed in atm.
+        df.loc[is_atm, "P (atm)"] = pressure.loc[is_atm]
+
+        # Convert bar to atm.
+        df.loc[is_bar, "P (atm)"] = (
+            pressure.loc[is_bar] * self.BAR_TO_ATM
+        )
+
+        if df["P (atm)"].isna().any():
+            raise ValueError(
+                "Some pressure values are missing or non-numeric."
+            )
+
+        # 3. Calculate the molalities b1 and b2.
+        b1_list = []
+        b2_list = []
 
         for _, row in df.iterrows():
             salt1_code = row.get("Salt 1 code")
             salt2_code = row.get("Salt 2 code")
-            x1_val, x2_val = row["x1"], row["x2"]
+
+            x1_value = row["x1"]
+            x2_value = row["x2"]
             unit = str(row["x unit"]).strip()
 
-            # Cálculo dinâmico das massas molares (retorna np.nan em caso de erro/código ausente)
+            # Calculate the molar masses.
             mw1 = self.parse_salt_code(salt1_code)
             mw2 = self.parse_salt_code(salt2_code)
 
-            # --- Regras de conversão baseadas nos códigos do README ---
+            if pd.isna(mw1) or pd.isna(mw2):
+                raise ValueError(
+                    "Could not calculate the molar mass for "
+                    f"salt codes: {salt1_code}, {salt2_code}."
+                )
+
+            # Saturated solution weight percentage.
             if unit == "SAT_SOL_WT%":
-                # g soluto/ g solução (Sat. Sol. Wt. %)
-                mass_water_g = 100.0 - (x1_val + x2_val)
+                mass_water_g = (
+                    100.0 - (x1_value + x2_value)
+                )
 
-                if mass_water_g <= 0.0:
-                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water_g}; x1_val = {x1_val}; x2_val = {x2_val}; ')
-
-                mass_water_kg = mass_water_g / 1000.0
-                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
-                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
-
-                # Frações molales (mol / kg de solução)
-
-            elif unit in ["G_100G_MIX"]:
-                # x1_val e x2_val estão em g de soluto / 100g de solução
-                mass_water_g = 100.0 - (x1_val + x2_val)
-
-                if mass_water_g <= 0.0:
-                    raise ValueError(f'A massa de agua não é um valor positivo. sal 1 = {salt1_code}; sal 2 = {salt2_code} massa de água = {mass_water_g}; x1_val = {x1_val}; x2_val = {x2_val}; ')
+                if mass_water_g <= 0:
+                    raise ValueError(
+                        "Water mass must be positive. "
+                        f"Salt 1: {salt1_code}; "
+                        f"Salt 2: {salt2_code}; "
+                        f"water mass: {mass_water_g} g."
+                    )
 
                 mass_water_kg = mass_water_g / 1000.0
 
-                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
-                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
+                b1 = (
+                    x1_value / mw1
+                ) / mass_water_kg
 
-            elif unit in ["G_100G_H2O"]:
-                mass_water_kg = 0.1 # massa de água fixa = 0.1 kg ou 100g
-                b1 = (x1_val / mw1) / mass_water_kg # mol / kg de água
-                b2 = (x2_val / mw2) / mass_water_kg # mol / kg de água
+                b2 = (
+                    x2_value / mw2
+                ) / mass_water_kg
 
+            # Grams of solute per 100 g of mixture.
+            elif unit == "G_100G_MIX":
+                mass_water_g = (
+                    100.0 - (x1_value + x2_value)
+                )
 
-            elif unit in ["G_CM3_SOL", "G_L_SOL", "GMOL_SOL"]:
-                # g soluto/ cm³ solvente (Gms. per 100 cc sat. sol.) => G_CM3_SOL;
-                # g soluto/ L solvente (Grams per Liter Sol.) => G_L_SOL;
-                # g*mol/ L solvente (Gm. mols. per liter) => GMOL_SOL
+                if mass_water_g <= 0:
+                    raise ValueError(
+                        "Water mass must be positive. "
+                        f"Salt 1: {salt1_code}; "
+                        f"Salt 2: {salt2_code}; "
+                        f"water mass: {mass_water_g} g."
+                    )
+
+                mass_water_kg = mass_water_g / 1000.0
+
+                b1 = (
+                    x1_value / mw1
+                ) / mass_water_kg
+
+                b2 = (
+                    x2_value / mw2
+                ) / mass_water_kg
+
+            # Grams of solute per 100 g of water.
+            elif unit == "G_100G_H2O":
+                mass_water_kg = 0.1
+
+                b1 = (
+                    x1_value / mw1
+                ) / mass_water_kg
+
+                b2 = (
+                    x2_value / mw2
+                ) / mass_water_kg
+
+            # Units for which molality conversion is not implemented.
+            elif unit in [
+                "G_CM3_SOL",
+                "G_L_SOL",
+                "GMOL_SOL",
+            ]:
                 b1 = np.nan
-                b1 = np.nan
+                b2 = np.nan
 
             else:
-                raise ValueError(f"Código não reconhecido: {unit}")
+                raise ValueError(
+                    f"Unrecognized composition unit: {unit}"
+                )
 
             b1_list.append(b1)
             b2_list.append(b2)
 
-        b1_array = np.array(b1_list)
-        b2_array = np.array(b2_list)
+        # 4. Calculate total molality.
+        df["b1"] = np.array(b1_list, dtype=float)
+        df["b2"] = np.array(b2_list, dtype=float)
 
-        # 4. Cálculo da molalidade total da mistura (b_total)
-        b_total_array = b1_array + b2_array
+        df["b_total"] = df["b1"] + df["b2"]
 
-        # 5. Cálculo das frações molais adimensionais (x1 e x2 são valores entre 0 e 1 tais que x1 + x2 = 1)
-        df["b1"] = b1_array
-        df["b2"] = b2_array
-        df["b_total"] = b_total_array
+        # 5. Remove rows with unavailable molalities.
+        df = df.dropna(
+            subset=["b1", "b2"]
+        ).copy()
 
-        # 6. Limpeza das linhas nulas inválidas
-        df=df.dropna(subset=["b1", "b2"])
+        # Remove binary-like cases with zero salt molality.
+        df = df[
+            (df["b1"] != 0.0)
+            & (df["b2"] != 0.0)
+        ].copy()
 
-        df=df[
-            (df["b1"] != 0.0) &
-            (df["b2"] != 0.0)
+        # 6. Validate the processed numerical values.
+        invalid_rows = df[
+            (df["b1"] <= 0)
+            | (df["b2"] <= 0)
+            | (df["b_total"] <= 0)
+            | (df["T (K)"] <= 0)
+            | (df["P (atm)"] <= 0)
         ]
 
-        invalidos = df[
-            (df["b1"] <= 0) |
-            (df["b2"] <= 0) |
-            (df["b_total"] <= 0) |
-            (df["T (K)"] <= 0) |
-            (df["P (MPa)"] <= 0)
-        ]
+        if not invalid_rows.empty:
+            raise ValueError(
+                f"Found {len(invalid_rows)} rows with invalid "
+                "molality, temperature, or pressure values."
+            )
 
-
-        if not invalidos.empty: raise ValueError(f"Existem valores inválidos")
-
-        # 7. Seleção e ordenação das colunas de saída solicitadas
+        # 7. Select and order the output columns.
         output_columns = [
             "Salt 1",
             "Salt 2",
             "Salt 1 code",
             "Salt 2 code",
             "T (K)",
-            "P (MPa)",
+            "P (atm)",
             "b1",
             "b2",
             "b_total",
             "Ref",
         ]
+
+        missing_columns = [
+            column
+            for column in output_columns
+            if column not in df.columns
+        ]
+
+        if missing_columns:
+            raise ValueError(
+                "Missing columns required for output: "
+                + ", ".join(missing_columns)
+            )
+
         self.output_dataset = df[output_columns].copy()
 
-
-
     def save_output_workbook(self):
-        "Salva a planilha de saída limpa sem colunas Unnamed."
-        self.output_path.parent.mkdir(parents=True, exist_ok=True)
+        """Save the processed dataset to the output workbook."""
+        if self.output_dataset is None:
+            raise ValueError(
+                "The output dataset has not been prepared. "
+                "Run prepare_output_dataset() first."
+            )
 
-        with pd.ExcelWriter(self.output_path, engine="openpyxl") as writer:
+        self.output_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+
+        with pd.ExcelWriter(
+            self.output_path,
+            engine="openpyxl",
+        ) as writer:
             if self.readme is not None and not self.readme.empty:
-                self.readme.to_excel(writer, sheet_name="README", index=False)
-            self.output_dataset.to_excel(writer, sheet_name="Processed_Data", index=False)
+                self.readme.to_excel(
+                    writer,
+                    sheet_name="README",
+                    index=False,
+                )
+
+            self.output_dataset.to_excel(
+                writer,
+                sheet_name="Processed_Data",
+                index=False,
+            )
