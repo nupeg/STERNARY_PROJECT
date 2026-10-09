@@ -4,5 +4,7 @@
 
     "output_path": "",
     "output_file": "",
-    "solubility_file": ""
+    "solubility_file": "",
+
+    "simulation_folder": ""
 }

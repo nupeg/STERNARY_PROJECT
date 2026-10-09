@@ -1,0 +1,12 @@
+# language: Playmol (http://atoms.peq.coppe.ufrj.br/playmol/)
+# K molecule
+
+
+atom_type   K
+mass        K   K
+charge      K*  0.85
+atom        K   K
+
+build
+1
+K       0.0 0.0 0.0

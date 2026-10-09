@@ -1,0 +1,79 @@
+# ====================================================================
+# Define variables
+# ====================================================================
+
+variable        nsteps equal 2500000  # 2.5 milhões
+variable        dt equal 2.0
+variable        seed equal 1201
+
+variable        T equal {TEMPERATURE}
+variable        P equal {PRESSURE}
+
+variable        tdamp equal  100*${dt}
+variable        pdamp equal 1000*${dt}
+
+
+# ====================================================================
+# Initialization
+# ====================================================================
+
+units           real
+boundary        p p p
+dimension       3
+
+
+atom_style      full
+pair_style      lj/cut/tip4p/long 1 2 1 1 0.1546 10.0 10.0          #tip4p-2005
+bond_style	harmonic
+angle_style     harmonic
+kspace_style    pppm/tip4p 1.0e-4
+
+timestep        ${dt}
+
+read_data       start_box.lmp nocoeff       # Arquivo com a configuração inicial do sistema
+
+# ====================================================================
+# Pair coeffs
+# ====================================================================
+
+kspace_modify   mesh 10 10 10
+include         coeffs.lmp      # Arquivo com as interações de lj do sistema
+                            
+# ====================================================================
+# Constraints
+# ====================================================================
+
+group           water type 1 2
+fix             tip4p water shake 0.0001 100 0 b 1 a 1
+
+# ====================================================================
+#	ENERGY MINIMIZATION
+# ====================================================================
+thermo			100 
+minimize 		1.0e-4 1.0e-6 100 1000
+
+# ====================================================================
+# Simulation
+# ====================================================================
+reset_timestep 0
+
+velocity        all create ${T} ${seed} mom yes rot yes dist gaussian
+fix 		mynpt all npt temp ${T} ${T} ${tdamp} iso ${P} ${P} ${pdamp}
+
+neigh_modify    every 1 delay 0 check yes one 5000
+neighbor        4.0 bin
+
+# ====================================================================
+# 1. Export results
+# ====================================================================
+thermo_modify	flush yes
+thermo_style	custom step time density temp press etotal 
+thermo		10000
+
+fix         	equilibrium all print 1 "$(time) $(density) $(temp) $(press) $(etotal)" file simulation.RUN title "time density temp press etotal" screen no 
+
+# ====================================================================
+# Execute the simulation
+# ====================================================================
+run             ${nsteps}
+
