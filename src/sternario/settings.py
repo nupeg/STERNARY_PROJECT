@@ -9,6 +9,13 @@ class Settings:
     output_path: str
     output_file: str
     solubility_file: str
+    dicionario_file: str
+    simulation_folder: str
+    playmol_executable_folder: str
+    eps_file: str
+    sig_file: str
+    setup_playmol_file: str
+    playmol_log_file: str
 
     def get(self, key: str, default=None):
         """
@@ -45,5 +52,12 @@ def load_settings(config_path: str = "settings.json") -> Settings:
         input_file=load_data["input_file"],
         output_path=load_data["output_path"],
         output_file=load_data["output_file"],
-        solubility_file=load_data["solubility_file"]
+        solubility_file=load_data["solubility_file"],
+        dicionario_file=load_data["dicionario_file"],
+        simulation_folder=load_data["simulation_folder"],
+        playmol_executable_folder=load_data["playmol_folder"],
+        eps_file=load_data["eps_file"],
+        sig_file=load_data["sig_file"],
+        setup_playmol_file=load_data["setup_playmol_file"],
+        playmol_log_file=load_data["playmol_log_file"]
     )

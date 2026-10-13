@@ -1,8 +1,13 @@
+
 from sternario.routines_concatenated_spreadsheet import DataProcessor
-from sternario.routines_simulation_folder_creator import (
+from sternario.routines_folder_creator import (
     main as create_simulation_folders,
 )
 from sternario.routines_solubility_spreadsheet import SolubilityProcessor
+from sternario.routines_playmol import main as process_playmol
+from sternario.routines_coeffs_creator import (
+    main as create_lammps_coefficients,
+)
 from sternario.settings import load_settings
 
 
@@ -31,14 +36,16 @@ def main():
         print("7. Prepare solubility dataset")
         print("8. Save solubility dataset")
 
-        print("\n--- Folder Creation ---")
+        print("\n--- Simulation Preparation ---")
         print("9. Create simulation folders")
+        print("10. Calculate stoichiometry and execute Playmol")
+        print("11. Generate LAMMPS coefficients")
 
-        print("\n--- Complete Workflows ---")
-        print("10. Execute complete data processing")
+        print("\n--- Complete Workflow ---")
+        print("12. Execute all workflows sequentially")
 
         print("\n--- Exit Menu ---")
-        print("\n0. Exit")
+        print("0. Exit")
 
         option = input("\nSelect an option: ").strip()
 
@@ -60,12 +67,10 @@ def main():
                 print("\nOutput dataset saved successfully.")
 
             elif option == "5":
-                # Nome corrigido conforme a classe SolubilityProcessor
                 solubility_processor.load_input_dataset()
                 print("\nSolubility input file loaded successfully.")
 
             elif option == "6":
-                # Nome corrigido conforme a classe SolubilityProcessor
                 solubility_processor.generate_solubility_points()
                 print("\nSolubility points generated successfully.")
 
@@ -80,19 +85,43 @@ def main():
             elif option == "9":
                 print("\nStarting simulation folder creation...")
 
-                # Adicionado () para executar a função
                 create_simulation_folders()
 
                 print("\nSimulation folder creation routine finished.")
 
             elif option == "10":
+                print("\nStarting stoichiometry calculations and Playmol...")
+
+                process_playmol()
+
+                print("\nStoichiometry and Playmol routine finished.")
+
+            elif option == "11":
+                print("\nStarting LAMMPS coefficient generation...")
+
+                create_lammps_coefficients()
+
+                print("\nLAMMPS coefficient generation routine finished.")
+
+            elif option == "12":
                 print("\nStarting complete workflow...")
 
+                # Process the original data
                 data_processor.execute()
+
+                # Generate the solubility dataset
                 solubility_processor.execute()
+
+                # Create simulation directories
                 create_simulation_folders()
 
-                print("\nComplete workflow finished.")
+                # Calculate ionic stoichiometry and execute Playmol
+                process_playmol()
+
+                # Generate LAMMPS force-field coefficients
+                create_lammps_coefficients()
+
+                print("\nAll workflows finished successfully.")
 
             elif option == "0":
                 print("\nProgram closed.")
