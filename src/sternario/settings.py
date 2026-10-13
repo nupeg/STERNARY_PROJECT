@@ -16,6 +16,7 @@ class Settings:
     sig_file: str
     setup_playmol_file: str
     playmol_log_file: str
+    lammps_script_folder: str
 
     def get(self, key: str, default=None):
         """
@@ -55,9 +56,10 @@ def load_settings(config_path: str = "settings.json") -> Settings:
         solubility_file=load_data["solubility_file"],
         dicionario_file=load_data["dicionario_file"],
         simulation_folder=load_data["simulation_folder"],
-        playmol_executable_folder=load_data["playmol_folder"],
+        playmol_executable_folder=load_data["playmol_executable_folder"],
         eps_file=load_data["eps_file"],
         sig_file=load_data["sig_file"],
         setup_playmol_file=load_data["setup_playmol_file"],
-        playmol_log_file=load_data["playmol_log_file"]
+        playmol_log_file=load_data["playmol_log_file"],
+        lammps_script_folder=load_data["lammps_script_folder"]
     )
