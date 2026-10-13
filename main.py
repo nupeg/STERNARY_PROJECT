@@ -1,13 +1,13 @@
-
+from sternario.routines_coeffs_creator import (
+    main as create_lammps_coefficients,
+)
 from sternario.routines_concatenated_spreadsheet import DataProcessor
 from sternario.routines_folder_creator import (
     main as create_simulation_folders,
 )
-from sternario.routines_solubility_spreadsheet import SolubilityProcessor
+from sternario.routines_run_lammps import main as run_lammps_simulations
 from sternario.routines_playmol import main as process_playmol
-from sternario.routines_coeffs_creator import (
-    main as create_lammps_coefficients,
-)
+from sternario.routines_solubility_spreadsheet import SolubilityProcessor
 from sternario.settings import load_settings
 
 
@@ -41,8 +41,11 @@ def main():
         print("10. Calculate stoichiometry and execute Playmol")
         print("11. Generate LAMMPS coefficients")
 
+        print("\n--- Running Simulation ---")
+        print("12. Run LAMMPS simulations")
+
         print("\n--- Complete Workflow ---")
-        print("12. Execute all workflows sequentially")
+        print("13. Execute all workflows sequentially")
 
         print("\n--- Exit Menu ---")
         print("0. Exit")
@@ -104,6 +107,13 @@ def main():
                 print("\nLAMMPS coefficient generation routine finished.")
 
             elif option == "12":
+                print("\nStarting LAMMPS simulations...")
+
+                run_lammps_simulations(settings)
+
+                print("\nLAMMPS simulation routine finished.")
+
+            elif option == "13":
                 print("\nStarting complete workflow...")
 
                 # Process the original data
@@ -120,6 +130,9 @@ def main():
 
                 # Generate LAMMPS force-field coefficients
                 create_lammps_coefficients()
+
+                # Run LAMMPS simulations
+                run_lammps_simulations(settings)
 
                 print("\nAll workflows finished successfully.")
 
